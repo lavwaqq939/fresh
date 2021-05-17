@@ -1,0 +1,21 @@
+.width-60 {
+    width: 60px !important;
+}
+
+.width-90 {
+    width: 90px !important;
+}
+
+.width-100 {
+    width: 100px !important;
+}
+.width-130{
+    width: 130px !important;
+}
+
+.layui-table-cell{
+    height:auto;
+}
+.min-width-400{
+    min-width: 400px;
+}

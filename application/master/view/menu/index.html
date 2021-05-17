@@ -1,0 +1,28 @@
+<div>
+    <a class="layui-btn model-a" href="{:url('menu/addMenu')}?id=0">添加子菜单</a>
+</div>
+
+<table class="layui-table edit-table" lay-data="{cellMinWidth: 80,
+    url:'{:url('menu/getMenu')}'
+    }" lay-filter="edit-table" data-url="{:url('editMenu')}" data-key="menu_id">
+    <thead>
+    <tr>
+        <th lay-data="{field:'menu_id', width:80, sort: true}">ID</th>
+        <th lay-data="{field:'pid', sort: true, edit:'number'}">所属父级id</th>
+        <th lay-data="{field:'rule', edit:'text'}">规则</th>
+        <th lay-data="{field:'title', edit:'text'}">标题</th>
+        <th lay-data="{templet:'#icon'}">图标</th>
+        <th lay-data="{field:'icon',  edit:'text'}">图标代码</th>
+        <th lay-data="{field:'order_number', edit:'number', sort: true}">排序</th>
+        <th lay-data="{field:'status',  edit:'number'}">状态</th>
+        <th lay-data="{toolbar: '#manipulate'}">操作</th>
+    </tr>
+    </thead>
+</table>
+
+<script type="text/html" id="manipulate">
+    <a class="layui-btn layui-btn-mini model-a" href="{:url('menu/addMenu')}?id={{ d.menu_id }}">添加子菜单</a>
+</script>
+<script type="text/html" id="icon">
+    <i class="layui-icon">{{ d.ricon }}</i>
+</script>

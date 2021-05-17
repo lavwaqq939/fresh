@@ -1,0 +1,45 @@
+<form action="{:url()}" class="layui-form layui-form-pane" method="post" style="margin: 20px">
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <label class="layui-form-label">规则</label>
+            <div class="layui-input-inline">
+                <input type="text" name="rule" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+    </div>
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <label class="layui-form-label">名称</label>
+            <div class="layui-input-inline">
+                <input type="text" name="title" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+    </div>
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <label class="layui-form-label">图标</label>
+            <div class="layui-input-inline">
+                <input type="text" name="icon" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+    </div>
+    <div class="layui-form-item">
+        <div class="layui-inline">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-inline">
+                <input type="text" name="order_number" value="0" autocomplete="off" class="layui-input">
+            </div>
+        </div>
+    </div>
+    <div class="layui-form-item">
+        <label class="layui-form-label">状态</label>
+        <div class="layui-input-inline">
+            <input type="text" name="status" value="1" autocomplete="off" class="layui-input">
+        </div>
+    </div>
+    <div class="layui-form-item">
+        {:token()}
+        <input type="hidden" name="id" value="{$id}">
+        <button class="layui-btn" lay-submit="" lay-filter="ajax">添加</button>
+    </div>
+</form>

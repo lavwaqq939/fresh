@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>{block name="title"}标题{/block}</title>
+
+    <link rel="stylesheet" href="__STATIC__/layui/css/layui.css">
+    {block name="head_css"}{/block}
+    <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
+    <script src="__STATIC__/layui/layui.js"></script>
+    <script src="__STATIC__/js/app.js"></script>
+    {block name="head_js"}{/block}
+</head>
+<body class="layui-layout-body">
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header">
+        {block name="logo"}{/block}
+        {block name="top_menu"}{/block}
+    </div>
+
+    <div class="layui-side layui-bg-black">
+        <div class="layui-side-scroll">
+            {block name="left_menu"}{/block}
+        </div>
+    </div>
+
+
+    <div class="layui-body">
+        <div style="padding: 20px;">
+            {block name="breadcrumb"}{/block}
+            <!-- 内容主体区域 -->
+            {block name="content"}{/block}
+        </div>
+
+    </div>
+
+    <div class="layui-footer" style="text-align: center">
+        {block name="footer"}开发维护·<a href="http://www.jurentech.com/" style="color: #0C0C0C" target="_blank">河北巨人科技有限公司</a>{/block}
+    </div>
+</div>
+
+{block name="footer_js"}{/block}
+</body>
+</html>

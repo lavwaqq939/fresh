@@ -1,0 +1,80 @@
+<!--继承base模板-->
+{extend name="base/base" /}
+
+<!--设置title-->
+{block name="title"}
+后台
+{/block}
+
+<!--头部公共css-->
+{block name="head_css"}
+<link rel="stylesheet" href="__STATIC__/css/main.css">
+{/block}
+
+<!--头部公共js-->
+{block name="head_js"}{/block}
+
+<!--底部公共js-->
+{block name="footer_js"}{/block}
+
+<!--设置logo-->
+{block name="logo"}
+<div class="layui-logo"></div>
+{/block}
+
+<!--顶部菜单-->
+{block name="top_menu"}
+{if condition="!is_null($top_menu)"}
+<ul class="layui-nav layui-layout-right">
+    <li class="layui-nav-item">
+        <a href="javascript:;">
+            {$username}
+        </a>
+        <dl class="layui-nav-child">
+            <dd><a href="{:url('admin/editPassword')}">修改密码</a></dd>
+        </dl>
+    </li>
+    <li class="layui-nav-item"><a href="{:url('user/logout')}">退了</a></li>
+</ul>
+{/if}
+{/block}
+
+<!--面包屑-->
+{block name="breadcrumb"}
+
+{/block}
+
+<!--左侧菜单-->
+{block name="left_menu"}
+{if condition="!is_null($left_menu)"}
+<ul class="layui-nav layui-nav-tree" lay-filter="left_menu">
+    {volist name="left_menu" id="lm"}
+    {if condition="isset($lm['sub'])"}
+    <li class="layui-nav-item {eq value='1' name='$lm.p_active'} layui-nav-itemed{/eq} ">
+        <a class="" href="javascript:;">
+            {present name="$lm.ricon"}
+            <i class="layui-icon">{$lm.ricon}</i>
+            {/present}{$lm.title}</a>
+        <dl class="layui-nav-child ">
+            {volist name="lm['sub']" id="l"}
+            <dd><a href="{:url($l.rule)}" {eq value='1' name='$l.active'} class=" layui-this" {/eq}>
+                {present name="$l.ricon"}
+                <i class="layui-icon">{$l.ricon}</i>
+                {/present}{$l.title}</a></dd>
+            {/volist}
+        </dl>
+    </li>
+    {else /}
+    <li class="layui-nav-item  {eq value='1' name='$lm.active'} layui-this{/eq}">
+        <a class="" href="{:url($lm.rule)}">
+            {present name="$lm.ricon"}
+            <i class="layui-icon">{$lm.ricon}</i>
+            {/present}{$lm.title}</a></li>
+    {/if}
+    {/volist}
+</ul>
+{/if}
+{/block}
+
+<!--页面内容-->
+{block name="content"}{__CONTENT__}{/block}
