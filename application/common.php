@@ -212,3 +212,250 @@ function secureUrlDecode($string)
     ($mod4) && $data .= substr('====', $mod4);
     return unserialize(base64_decode($data));
 }
+
+/**
+ * 发送短信
+ * @param $tel String 手机号
+ * @param $tpl string 短信模板
+ * @param $data array 短信数据
+ * @return array
+ */
+function sendSms($tel, $tpl, $data)
+{
+    //这里的路径EXTEND_PATH就是指tp5根目录下的extend目录，系统自带常量。alisms为我们复制api_sdk过来后更改的目录名称
+    require_once EXTEND_PATH.'alisms/vendor/autoload.php';
+    \Aliyun\Core\Config::load();             //加载区域结点配置
+    $accessKeyId = config("ALI_VCODE.key");  //阿里云短信获取的accessKeyId
+    $accessKeySecret =  config("ALI_VCODE.secret"); //阿里云短信获取的accessKeySecret
+    //这个个是审核过的模板内容中的变量赋值，记住数组中字符串code要和模板内容中的保持一致
+    //比如我们模板中的内容为：你的验证码为：${code}，该验证码5分钟内有效，请勿泄漏！
+    $templateParam = $data;           //模板变量替换
+    $signName = config("ALI_VCODE.sign_name"); //这个是短信签名，要审核通过
+    $templateCode = $tpl;   //短信模板ID，记得要审核通过的
+    //短信API产品名（短信产品名固定，无需修改）
+    $product = "Dysmsapi";
+    //短信API产品域名（接口地址固定，无需修改）
+    $domain = "dysmsapi.aliyuncs.com";
+    //暂时不支持多Region（目前仅支持cn-hangzhou请勿修改）
+    $region = "cn-hangzhou";
+    // 初始化用户Profile实例
+    $profile = \Aliyun\Core\Profile\DefaultProfile::getProfile($region, $accessKeyId, $accessKeySecret);
+    // 增加服务结点
+    \Aliyun\Core\Profile\DefaultProfile::addEndpoint("cn-hangzhou", "cn-hangzhou", $product, $domain);
+    // 初始化AcsClient用于发起请求
+    $acsClient= new \Aliyun\Core\DefaultAcsClient($profile);
+    // 初始化SendSmsRequest实例用于设置发送短信的参数
+    $request = new \Aliyun\Api\Sms\Request\V20170525\SendSmsRequest();
+    // 必填，设置雉短信接收号码
+    $request->setPhoneNumbers($tel);
+    // 必填，设置签名名称
+    $request->setSignName($signName);
+    // 必填，设置模板CODE
+    $request->setTemplateCode($templateCode);
+    // 可选，设置模板参数
+    if($templateParam) {
+        $request->setTemplateParam(json_encode($templateParam));
+    }
+    //发起访问请求
+    $acsResponse = $acsClient->getAcsResponse($request);
+    //返回请求结果
+    $result = json_decode(json_encode($acsResponse),true);
+    if ($result["Code"] == "OK") {
+        return array(
+            "result" => true,
+            "message" => ""
+        );
+    } else {
+        return array(
+            "result" => false,
+            "message" => $result["Message"]
+        );
+    }
+}
+
+/**
+ * 验证手机号
+ */
+function checkTelFormat($phoneNumber)
+{
+    $pattern = "/^1[3456789]\d{9}$/";
+    $phoneStatus = preg_match($pattern, $phoneNumber);
+    if ($phoneStatus == 1) {
+        return true;
+    } else {
+        return false;
+    }
+}
+/**
+ * 返回小程序信息
+ */
+function getxcxInfo($code,$options){
+    $appid= $options["app_id"];
+    $app_secret = $options["secret"];
+    $app = "https://api.weixin.qq.com/sns/jscode2session?appid=$appid&secret=$app_secret&js_code=$code&grant_type=authorization_code";
+    $userService = file_get_contents($app);
+    $userService = json_decode($userService,true);
+    return $userService;
+}
+
+/**
+ * 微信支付
+ * @param $info 订单信息一维数组
+ * @param $name 商品名称 字符串
+ * @param $attach 类型  1 支付订单 2充值
+ * @param $type 区分支付端
+ * @return array
+ */
+function weChatPay($info,$name,$attach,$wx_openid=null){
+    $payResult = [];
+    $trade_type = $wx_openid?'JSAPI':'APP';
+    //$attach 为1支付2充值3积分商品支付运费
+    $attributes = [
+        'trade_type'       => $trade_type, // JSAPI，NATIVE，APP...
+        'body'             => $name,
+        'detail'           => $name,
+        'out_trade_no'     => $info["order_no"],
+        'total_fee'        => $info["order_money"], // 单位：分
+        "attach"           => $attach,
+    ];
+    $easyWeChat = easyWeChat();
+    $payment = $easyWeChat->payment;
+    $order = new \EasyWeChat\Payment\Order($attributes);
+    $result = $payment->prepare($order);
+    //var_dump($result);die;
+    if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS'){
+        $prepayId = $result->prepay_id;
+        $payResult["result"]  = true;
+        if($wx_openid){
+            $payResult["msg"] = $payment->configForJSSDKPayment($prepayId);
+        }else{
+            $payResult["msg"] = $payment->configForAppPayment($prepayId);
+        }
+
+    } else {
+        $payResult["result"]  = false;
+        $payResult["msg"] = "下单失败";
+    }
+    return $payResult;
+}
+//实例化
+function easyWeChat($option=[]){
+    $options = $option ?$option:config("xcx_config");
+    $app = new \EasyWeChat\Foundation\Application($options);
+    return $app;
+}
+/**
+ * /*
+ * 微信退款
+ * @param $type int 微信配置 1开放 !1 公众
+ * @param $orderNo string 订单号
+ * @param $refundNo string 退款单号
+ * @param $total price 总金额 单位分
+ * @param $refundFee price 退款金额 单位分
+ * @return array
+ */
+function weChatTradeRefund($type,$orderNo,$refundNo,$total,$refundFee){
+    if($type == 1){
+        $options = config("open_Platform");
+    }else {
+        $options = config("xcx_config");
+    }
+    $app = easyWeChat($options);
+    $payment = $app->payment;
+    $result = $payment->refund($orderNo, $refundNo, $total, $refundFee);
+    $res = json_decode($result,TRUE);
+//    return $res;
+    if($res["return_code"]!=="SUCCESS"){
+        $msg = [
+            "msg"=>$res["return_msg"],
+            "result"=>false
+        ];
+    }else{
+        $msg = [
+            "msg"=>'SUCCESS',
+            'result'=>true
+        ];
+    }
+    return $msg;
+}
+//返回订单编号
+function getOrderNo(){
+    $rand = rand(1000,9999);
+    return date("YmdHis").$rand;
+}
+//返回随机字符串
+function sessionStr(){
+    return rand(1000, 9999) . date('YmdHis') . 'dyxsxcx';
+}
+//小程序解密
+function xcxDecrypt($appid, $sessionKey,$encryptedData, $iv)
+{
+    require_once ROOT_PATH.'/extend/wxxcx/wxBizDataCrypt.php';
+    $pc = new WXBizDataCrypt($appid, $sessionKey);
+    $errCode = $pc->decryptData($encryptedData, $iv, $data );
+    if ($errCode == 0) {
+        //$data = json_decode($data,1);
+        // print($data . "\n");
+        return $data;
+    } else {
+        // print($errCode . "\n");
+        return $errCode;
+    }
+}
+//小程序推送
+function xcxPush($openid,$template_id,$form_id,$data)
+{
+    $xcx = config("xcx_config");
+    $arr = [
+        "grant_type"=>"client_credential",
+        "appid"=>$xcx['app_id'],
+        "secret"=>$xcx['secret']
+    ];
+    $r = http_request("https://api.weixin.qq.com/cgi-bin/token",$arr);
+    $access_token = json_decode($r,true);
+    $data = [
+        "touser"=>$openid,//用户openid
+        "template_id"=>$template_id,//模板id
+        "form_id"=>$form_id,//form_id
+        "data"=>$data,//二维数组
+//        "data"=>[
+//            "keyword1"=>[
+//                "value"=>"收到没",
+//                "color"=>"#cccccc"
+//            ],
+//            "keyword2"=>[
+//                "value"=>"收到了",
+//                "color"=>"#cccccc"
+//            ]
+//        ]
+    ];
+    $ast = $access_token['access_token']; //ACCESS_TOKEN
+    $rdata = http_request("https://api.weixin.qq.com/cgi-bin/message/wxopen/template/send?access_token=".$ast, $data,"json");
+    $rdata = json_decode($rdata,true);
+    if($rdata['errcode']==0){
+        return true;
+    } else {
+        return false;
+    }
+}
+//curl小程序推送用
+function http_request($url,$data,$type="http")
+{
+    $curl = curl_init();
+    if ($type == "json"){
+        $headers = array("Content-type: application/json;charset=UTF-8");
+        $data=json_encode($data);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+    }
+    curl_setopt($curl, CURLOPT_URL, $url);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, FALSE);
+    if (!empty($data)){
+        curl_setopt($curl, CURLOPT_POST, 1);
+        curl_setopt($curl, CURLOPT_POSTFIELDS,$data);
+    }
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    $output = curl_exec($curl);
+    curl_close($curl);
+    return $output;
+}

@@ -234,7 +234,7 @@ return [
 
     //分页配置
     'paginate'               => [
-        'type'      => 'bootstrap',
+        'type'      => '\page\Layui',
         'var_page'  => 'page',
         'list_rows' => 15,
     ],
@@ -251,5 +251,38 @@ return [
         'user_role' => 'admin_role',
         //角色权限关联表
         'role_permission' => 'role_permission',
-    ]
+    ],
+    //app提示
+    "ERROR_POINT_OUT" => "网络错误,请稍后再试",
+    "SUCCESS_POINT_OUT" => "操作成功",
+    "PARAM_POINT_OUT" => "缺少参数",
+
+    //阿里短信
+    'ALI_VCODE' => [
+        'key' => '',
+        'secret' => '',
+        'sign_name' => '大眼鲜生',
+        //验证码有效时间
+        'vcode_time' => 5,
+        //验证码发送模板
+        'ALIDAYU_VCODE_TPL' => '',
+    ],
+
+    //小程序
+    "xcx_config" => [
+        'app_id' => '',// AppID
+        'secret' => '',
+        'payment' => [
+            'merchant_id' => '',
+            'key' => '',
+            'cert_path' => '/var/www/html/shupin/cert/apiclient_cert.pem', // XXX: 绝对路径！！！！
+            'key_path' => '/var/www/html/shupin/cert/apiclient_key.pem',      // XXX: 绝对路径！！！！
+            'notify_url' => 'http://shupinyun.jurentech.xin/userapi/Callback/wxnotify'
+        ],
+        'log' => [
+            'level' => 'debug',
+            'permission' => 0777,
+            'file' => ROOT_PATH . '/wxlog/easychat.log',
+        ],
+    ],
 ];
