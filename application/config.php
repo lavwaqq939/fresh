@@ -252,6 +252,10 @@ return [
         //角色权限关联表
         'role_permission' => 'role_permission',
     ],
+
+    //每页分页数
+    'page' => 10,
+
     //app提示
     "ERROR_POINT_OUT" => "网络错误,请稍后再试",
     "SUCCESS_POINT_OUT" => "操作成功",
