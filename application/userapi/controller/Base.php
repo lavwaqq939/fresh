@@ -27,6 +27,6 @@ class Base extends PublicController
             return;
         }
         //验证签名
-        $this->checkSign();
+        //$this->checkSign();
     }
 }

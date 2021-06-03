@@ -56,14 +56,120 @@ class User extends Base
         $banner = model('Banner')->getBanner($where);
         $this->_ajax_return(200,'操作成功',$banner);
     }
-    //门店列表 门店评分计算没解决？？
+    //门店列表
     public function storeList()
     {
+        $page = input('page');
         $type = input('type');//type为1距离最近为2评分最高
+        $user_id = input('user_id');
         $longitude = input('longitude');//经度
         $latitude = input('latitude');//纬度
-//        http://restapi.amap.com/v3/distance?origins=$radLat1&destination=$weizhi&output=JSON&type=0&key=409b460dc7afa24c9a18db0ee0e0dfdc
-
+        $goods_name = input('goods_name');
+        if(!$page || !$type ||!$user_id ||!$longitude ||!$latitude){
+           $this->_ajax_return(603,'缺少参数');
+        }
+        $data = model('Store')->queryRange($longitude,$latitude,$page,$user_id,$goods_name);
+        if($type==1) {
+            $edition = [];
+            foreach ($data as $k => $v) {
+                $edition[] = $v['distance'];
+            }
+            if(is_array($edition)&& !empty($edition)){
+                array_multisort($edition, SORT_ASC, $data);
+            }
+        }else {
+            $edition = [];
+            foreach ($data as $k => $v) {
+                $edition[] = $v['score'];
+            }
+            if(is_array($edition)&& !empty($edition)){
+                array_multisort($edition, SORT_DESC, $data);
+            }
+        }
+        $this->_ajax_return(200,'操作成功',$data);
+    }
+    //门店分类列表
+    public function cateList()
+    {
+        $store_id = input('store_id');
+        $where = [
+            's.status' => 1,
+            's.store_id' => $store_id,
+            'c.status' =>1,
+        ];
+        $field ="g.category_id,c.category_name";
+        $cate = model('Store')->getStoreCate($field,$where);
+        $this->_ajax_return(200,'操作成功',$cate);
+    }
+    //门店商品列表
+    public function goodsList()
+    {
+        $store_id = input('store_id');
+        $category_id = input('category_id');
+        $page = input('page');
+        if(!$store_id || !$category_id ||!$page) $this->_ajax_return(603,'缺少参数');
+        $where = [
+            's.status' => 1,
+            's.store_id' => $store_id,
+            'c.category_id' =>$category_id,
+        ];
+        $field ="g.goods_id,g.goods_name,g.goods_img,g.goods_spe,g.goods_price,s.evaluate_count,s.five_star_count";
+        $goods = model('Store')->getStoreGoods($field,$where,$page);
+        foreach($goods as $k=>$v) {
+            $goods[$k]['praiserate'] = $goods[$k]['five_star_count'] / $goods[$k]['evaluate_count'];
+            $goods[$k]['praiserate'] = (number_format($goods[$k]['praiserate'], 2)*100).'%';
+        }
+        $this->_ajax_return(200,'操作成功',$goods);
+    }
+    //门店信息
+    public function storeInfo()
+    {
+        $store_id = input('store_id');
+        $field = "store_id,store_name,store_img,store_address,store_telephone,business_start,business_end,dispatch_start,dispatch_end,score";
+        $where = [
+            'store_id'=>$store_id,
+            'status'=>1,
+        ];
+        $store = model("Store")->getStoreInfo($field,$where);
+        $this->_ajax_return(200,'操作成功',$store);
+    }
+    //商品详细信息
+    public function goodsInfo()
+    {
+        $goods_id = input('goods_id');
+        $store_id = input('store_id');
+        if(!$store_id || !$goods_id) $this->_ajax_return(603,'缺少参数');
+        $where = [
+            's.status' => 1,
+            's.store_id' => $store_id,
+            'g.goods_id' =>$goods_id,
+        ];
+        $field ="g.goods_id,g.goods_name,g.goods_img,g.goods_spe,g.goods_price,g.goods_discript,s.evaluate_count,s.five_star_count,c.category_name";
+        $goods = model('Goods')->getGoodsInfo($field,$where);
+        if($goods){
+            $goods['praiserate'] = $goods['five_star_count'] / $goods['evaluate_count'];
+            $goods['praiserate'] = (number_format($goods['praiserate'], 2)*100).'%';
+        }
+        $this->_ajax_return(200,'操作成功',$goods);
+    }
+    //商品评论列表
+    public function goodsCommentList()
+    {
+        $store_id = input('store_id');
+        $goods_id = input('goods_id');
+        $page = input('page');
+        if(!$store_id || !$goods_id || !$page) $this->_ajax_return(603,'缺少参数');
+        $where = [
+            'c.goods_id'=>$goods_id,
+            'c.store_id'=>$store_id,
+            'c.status'=>1,
+        ];
+        $field = "u.user_id,u.nickname,u.headimg,c.stars,c.create_time,c.body,c.comment_id";
+        $comment = model('Comment')->getCommentList($field,$where,$page);
+        foreach ($comment as $k=>$v) {
+            $comment[$k]['img']  = db('comment_info')->field('path')->where('comment_id',$comment[$k]['comment_id'])->select();
+        }
+        $this->_ajax_return(200,'操作成功',$comment);
     }
     //我的收获地址列表
     public function addressList()
@@ -121,6 +227,34 @@ class User extends Base
         if($res) $this->_ajax_return(200,'操作成功');
         else $this->_ajax_return(603,'操作失败');
     }
+    //收藏门店 取消收藏
+    public function collectStore()
+    {
+        $user_id  = input('user_id');
+        $store_id = input('store_id');
+        $type = input('type');//type1收藏2取消
+        if(!$user_id || !$store_id ||!$type) $this->_ajax_return(603,"缺少参数");
+        $arr = [
+            'user_id'=>$user_id,
+            'store_id'=>$store_id,
+        ];
+        if($type==1){
+            $user_collect = db('user_collect')->where($arr)->find();
+            if($user_collect) $this->_ajax_return(603,'您已经收藏过该门店');
+            $res = db('user_collect')->insert($arr);
+        }else{
+            $res = db('user_collect')->where($arr)->delete();
+        }
+        if($res) $this->_ajax_return(200,'操作成功');
+        else $this->_ajax_return(603,'操作失败');
+    }
+    //个人信息
+    public function userInfo()
+    {
+        $user_id  = input('user_id');
+        $data = model('User')->getUserInfo($user_id);
+        $this->_ajax_return(200,'操作成功',$data);
+    }
     //判断支付密码是否正确
     public function checkPay()
     {
@@ -158,33 +292,9 @@ class User extends Base
         if($update === false) $this->_ajax_return(603,"操作失败");
         $this->_ajax_return(200,"操作成功");
     }
-    //收藏门店 取消收藏
-    public function collectStore()
-    {
-        $user_id  = input('user_id');
-        $store_id = input('store_id');
-        $type = input('type');//type1收藏2取消
-        if(!$user_id || !$store_id ||!$type) $this->_ajax_return(603,"缺少参数");
-        $arr = [
-            'user_id'=>$user_id,
-            'store_id'=>$store_id,
-        ];
-        if($type==1){
-            $user_collect = db('user_collect')->where($arr)->find();
-            if($user_collect) $this->_ajax_return(603,'您已经收藏过该门店');
-            $res = db('user_collect')->insert($arr);
-        }else{
-            $res = db('user_collect')->where($arr)->delete();
-        }
-        if($res) $this->_ajax_return(200,'操作成功');
-        else $this->_ajax_return(603,'操作失败');
-    }
-    //个人信息
-    public function userInfo()
-    {
-        $user_id  = input('user_id');
-        $data = model('User')->getUserInfo($user_id);
-        $this->_ajax_return(200,'操作成功',$data);
+    //结算信息
+    public function clearingInfo(){
+
     }
 
 }
