@@ -68,7 +68,19 @@ class User extends Base
         if(!$page || !$type ||!$user_id ||!$longitude ||!$latitude){
            $this->_ajax_return(603,'缺少参数');
         }
-        $data = model('Store')->queryRange($longitude,$latitude,$page,$user_id,$goods_name);
+        if(isset($goods_name)) {
+            $g_where = [
+                's.status' => 1,
+                'g.goods_name' => ["like", "%" . $goods_name . "%"],
+            ];
+            $store_id = db('goods')->alias('g')
+                ->join('store_goods s', 's.goods_id = g.goods_id')
+                ->where($g_where)
+                ->column('store_id');
+            $data = model('Store')->queryRange($longitude,$latitude,$page,$user_id,$store_id);
+        } else {
+            $data = model('Store')->queryRange($longitude,$latitude,$page,$user_id);
+        }
         if($type==1) {
             $edition = [];
             foreach ($data as $k => $v) {
@@ -179,7 +191,7 @@ class User extends Base
             'user_id'=>$user_id,
             'address_status'=>1,
         ];
-        $data = db('user_address')->where($where)->select();
+        $data = db('user_address')->where($where)->order('user_address_id desc')->select();
         $this->_ajax_return(200,'操作成功',$data);
     }
     //新增收货地址
@@ -294,7 +306,161 @@ class User extends Base
     }
     //结算信息
     public function clearingInfo(){
-
+        $user_id = input('user_id');
+        $goods_id = input('goods_id');
+        $store_id = input('store_id');
+        $goods_number = input('goods_number');
+        if(!$goods_id || !$store_id ||!$goods_number ||!$user_id) {
+            $this->_ajax_return(603,"缺少参数");
+        }
+        $goods_id = explode(',',$goods_id);
+        $goods_number = (explode(',',$goods_number));
+        $where = [
+            'sg.store_id'=>$store_id,
+            'sg.goods_id'=>['in',$goods_id],
+            'sg.status'=>1,
+        ];
+        $field = "s.store_name,g.goods_id,g.goods_name,g.goods_img,g.goods_price";
+        $data['goods'] = model('Goods')->getGoodsSelect($field,$where);
+        $total = 0.00;
+        $goods_num = 0;
+        foreach ($data['goods'] as $k=>$v){
+            $number = $goods_number[$k];
+            $data['goods'][$k]['price'] = $data['goods'][$k]['goods_price'] * $number;
+            $data['goods'][$k]['number'] = $number;
+            $total += ($data['goods'][$k]['goods_price'] * $number);
+            $goods_num += $number;
+        }
+        $c_where = [
+            'ucr.user_id'=>$user_id,
+            'ucr.is_use'=>0,
+            'c.end_time'=>['>',date("Y-m-d H:i:s")],
+            'c.full_money'=>['<=',$total],
+        ];
+        $data['coupon'] = model('Coupon')->getDoCoupon($c_where);
+        foreach ($data['coupon'] as $key=>$val){
+            $data['coupon'][$key]['end_time'] = str_replace("-",".",substr($data['coupon'][$key]['end_time'],0,10));
+        }
+        $data['goods_num'] = $goods_num;
+        $data['total'] = $total;
+        $this->_ajax_return(200,"操作成功",$data);
     }
-
+    //获取配送费
+    public function getFreight()
+    {
+        $store_id = input('store_id');
+        $address_id = input('user_address_id');
+        if(!$store_id ||!$address_id) $this->_ajax_return(603,"缺少参数");
+        $y_where = [
+            'type'=>['in',[1,2]],
+            'status'=>1,
+        ];
+        $freight = db('config')->where($y_where)->find();
+        if($freight['type']==1){
+           $store = db('store')->where('store_id',$store_id)->find();
+           $user_address = db('user_address')->where('user_address_id',$address_id)->find();
+           //计算距离
+           $destination = $store['longitude'].','.$store['latitude'];
+           $origins = $user_address['longitude'].','.$user_address['latitude'];
+           $app = "http://restapi.amap.com/v3/distance?origins=$origins&destination=$destination&output=JSON&type=0&key=d76a846aa32a0dfd9a58e788b16bdc74";
+           $Service = file_get_contents($app);
+           $Service = json_decode($Service, true);
+           if($Service['status']!=1) $this->_ajax_return(603,"网络错误！");
+           foreach ($Service['results'] as $key=>$val){
+                $distance = $val['distance'];
+           }
+           //向上取整获取运费
+           $data['freight'] = $freight['value'] * (ceil($distance/1000));
+        } else {
+           $data['freight'] = $freight['value'];
+        }
+        $this->_ajax_return(200,"操作成功",$data);
+    }
+    //协议编辑1 关于我们2  会员权益5
+    public function information()
+    {
+        $id = input('system_id');
+        $data['info'] = db('system')->where('system_id',$id)->value('value');
+        $this->_ajax_return(200,"操作成功",$data);
+    }
+    //客服信息
+    public function customerService()
+    {
+        $data['info'] = db('system')->where('system_id',3)->value('value');
+        $data['phone'] = db('system')->where('system_id',4)->value('value');
+        $this->_ajax_return(200,"操作成功",$data);
+    }
+    //修改手机号
+    public function updPhone()
+    {
+        $user_id = input('user_id');
+        $telephone = input('newTelephone');
+        $code = input('code');
+        if(!$telephone ||!$code ||!$user_id) $this->_ajax_return(603,"缺少参数");
+        if(!checkTelFormat($telephone)) $this->_ajax_return(603,"手机号格式错误");
+        $where = [
+            'telephone'=>$telephone,
+            'status'=>1,
+        ];
+        $count = db('user')->where($where)->count();
+        if ($count) $this->_ajax_return(603,"手机号已存在!");
+        $result = model('Vcode')->checkCode($telephone,$code);
+        if(!$result["result"]) $this->_ajax_return(603,$result["msg"]);
+        $res = db('user')->where('user_id',$user_id)->update(['telephone'=>$telephone]);
+        if($res) $this->_ajax_return(200,'操作成功');
+        else $this->_ajax_return(603,'系统繁忙，请稍后再试');
+    }
+    //收藏门店列表
+    public function collectionList()
+    {
+        $page = input('page');
+        $user_id = input('user_id');
+        $longitude = input('longitude');//经度
+        $latitude = input('latitude');//纬度
+        if(!$page || !$user_id ||!$longitude||!$latitude) $this->_ajax_return(603,'缺少参数');
+        $store_id = db('user_collect')->where('user_id',$user_id)->column('store_id');
+        $data = model('Store')->queryRange($longitude,$latitude,$page,$user_id,$store_id);
+        $this->_ajax_return(200,'操作成功',$data);
+    }
+    //反馈
+    public function feedback()
+    {
+        $user_id = input('user_id');
+        $content = input('content');
+        if(!$user_id ||!$content) $this->_ajax_return(603,'缺少参数');
+        $arr = [
+            'user_id'=>$user_id,
+            'content'=>$content,
+        ];
+        $res = db('feedback')->insert($arr);
+        if($res) $this->_ajax_return(200,'操作成功');
+        else $this->_ajax_return(603,'系统繁忙，请稍后再试');
+    }
+    //优惠券列表
+    public function couponList()
+    {
+        $user_id = input('user_id');
+        $where = [
+            'ucr.user_id'=>$user_id,
+        ];
+        $data = model('Coupon')->getDoCoupon($where);
+        foreach($data as $k=>$v){
+            $data[$k]['end_time'] = str_replace("-",".",substr($data[$k]['end_time'],0,10));
+            if($data[$k]['is_use'] == 0 && $data[$k]['end_time'] < date("Y-m-d H:i:s")){
+                $data[$k]['is_use']=3;
+            }
+        }
+        $this->_ajax_return(200,'操作成功',$data);
+    }
+    //钱包及记录
+    public function myWallet()
+    {
+        $user_id = input('user_id');
+        $page = input('page');
+        if(!$page || !$user_id) $this->_ajax_return(603,'缺少参数');
+        $data['money'] = db('user_info')->where('user_id',$user_id)->value('account');
+        $field = "total_fee,type,create_time";
+        $data['moneyLog'] = db('account_log')->field($field)->where('user_id',$user_id)->order('account_log_id desc')->page($page,config("page"))->select();
+        $this->_ajax_return(200,"操作成功",$data);
+    }
 }

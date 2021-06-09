@@ -11,18 +11,10 @@ use think\Model;
 class Store extends Model
 {
     //门店列表
-    public function queryRange($longitude,$latitude,$page,$user_id,$goods_name)
+    public function queryRange($longitude,$latitude,$page,$user_id,$store_id=null)
     {
         $where = ['status'=>1];
-        if(isset($goods_name)) {
-            $g_where = [
-                's.status' => 1,
-                'g.goods_name' => ["like", "%" . $goods_name . "%"],
-            ];
-            $store_id = db('goods')->alias('g')
-                ->join('store_goods s', 's.goods_id = g.goods_id')
-                ->where($g_where)
-                ->column('store_id');
+        if(isset($store_id)) {
             $where['store_id'] = ['in',$store_id];
         }
         $field = "store_id,store_name,store_img,dispatch_start,dispatch_end,score,longitude,latitude";
@@ -49,6 +41,7 @@ class Store extends Model
             ->field($field)
             ->join('store_goods s', 's.goods_id = g.goods_id')
             ->join('category c','c.category_id = g.category_id')
+            ->order('category_id desc')
             ->where($where)
             ->select();
         return $cate;
@@ -60,6 +53,7 @@ class Store extends Model
             ->join('store_goods s', 's.goods_id = g.goods_id')
             ->join('category c','c.category_id = g.category_id')
             ->where($where)
+            ->order('goods_id desc')
             ->page($page,config("page"))
             ->select();
         return $goods;

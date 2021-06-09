@@ -20,6 +20,8 @@ class User extends Validate
         "username" => 'require',
         "area_name" => 'require',
         "address" => 'require',
+        "longitude" => 'require',
+        "latitude" => 'require',
 
         "payTelephone"=>"require|regex:tel|exitsTelephone",
         "pay_password"=>"require|confirmPay",
@@ -35,6 +37,8 @@ class User extends Validate
         'username.require'  => '用户名不可为空',
         'area_name.require'  => '收货地址不可为空',
         'address.require'  => '详细地址不可为空',
+        'longitude.require'  => '缺少参数',
+        'latitude.require'  => '缺少参数',
 
         "pay_password.require"=>"请输入6位数字支付密码",
         "qrpay_password.require"=>"请输入支付密码",
@@ -47,7 +51,7 @@ class User extends Validate
     ];
     protected $scene = [
         "checkCode" => "telephone,code",
-        "checkaddAddress" => "telephone,user_id,username,area_name,address",
+        "checkaddAddress" => "telephone,user_id,username,area_name,address,longitude,latitude",
 
         "pay"=>"pay,user_id",
         "addPayPassword"=>"pay_password,qrpay_password,user_id",

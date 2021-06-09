@@ -20,4 +20,14 @@ class Goods extends Model
             ->find();
         return $goods;
     }
+    public function getGoodsSelect($field,$where)
+    {
+        $data = db('store_goods')->alias('sg')
+            ->field($field)
+            ->join('goods g','g.goods_id = sg.goods_id')
+            ->join('store s','s.store_id = sg.store_id')
+            ->where($where)
+            ->select();
+        return $data;
+    }
 }
