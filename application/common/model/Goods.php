@@ -3,7 +3,7 @@
  * Created by PhpStorm.
  * User: 17828
  * Date: 2018/7/7
- * Time: 14:08
+ * Time: 14:10
  */
 namespace app\common\model;
 use think\Model;
